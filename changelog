@@ -5,6 +5,7 @@ Version 1.13.0-dev:
      least one add-on that may be upgraded.
  * Add-ons server:
    * Add-on metadata pattern blacklisting implemented.
+   * Major internal refactoring done.
  * AI:
    * New Micro AI: Fast AI
    * Messenger Escort Micro AI: new optional parameters [filter],
@@ -45,9 +46,13 @@ Version 1.13.0-dev:
    * Eastern Invasion:
      * In 'Captured', stolen gold won't be mentioned if the player had no
        carryover gold.
+   * Heir to the Throne:
+     * Fixed missing message in 'The Siege of Elensefar'.
    * Northern Rebirth:
      * Fixed Sister Thera and Father Morvin respawning into the recall list if
        the other is on the north or west map edges.
+   * Sceptre of Fire:
+     * Balancing changes for 'The Dragon'.
    * Son of the Black Eye:
      * S2: adjusted starting villages; scenario now ends if Kapou'e is already
        on the signpost when the messenger comes back
@@ -83,6 +88,9 @@ Version 1.13.0-dev:
    * Fixed bug #22045: Only blit neutral surfaces.
    * [item] images are now subject to local ToD lighting effects instead of
      just the current map-wide ToD lighting (bug #22215).
+   * Disabled "alpha thresholding" in the bilinear interpolation algorithm
+     used for all sprites and images. (This was introduced as a workaround
+     for an old bug.)
  * Replays:
    * Added a button that allows playing a single move in replay mode.
  * Units:
@@ -156,7 +164,8 @@ Version 1.13.0-dev:
    * Fixed bug #20876: A segfault in cut_surface.
    * Dropped support for AmigaOS, BeOS, and OS/2.
    * Increased the sound mixer channel allocation from 16 to 32, thereby
-     raising the limit for simultaneous sound effects from 5 to 21.
+     raising the limit for simultaneous sound effects from 5 to 20, and
+     simultaneous UI sounds from 1 to 2.
    * Fix bug #21758: "Ready not blocked while player pick faction."
    * Fix bug #18829: "ai sides show up as "controller=network" on remote
      clients". This issue is the source of some difficulties with mp campaigns
@@ -292,8 +301,6 @@ Version 1.13.0-dev:
    * Add [has_ally], [has_enemy] to work around issues reported here: http://forums.wesnoth.org/viewtopic.php?f=21&t=40702
      In a side_filter, [has_ally] and [has_enemy] are corrected / simplified versions of [allied_with] / [enemy_of], this
      is an extension of the bugfixes for [filter_vision].
-   * Mushroom Grove and Lit Mushroom Grove now favor the terrain with the worst
-     movement costs between the base and overlay (bug #21971).
    * Fix [side] share_view/maps always beeing false for non-first levels in mp campaigns
    * Fixes start-of-scenario multiplaer saves (#22068)
    * Fix bug wherein "lobby sounds" advanced preference didn't do anything for the normal (GUI 1) lobby.
@@ -341,6 +348,8 @@ Version 1.13.0-dev:
    * Fix bug #22443: Scenario Settings table has inaccurate Start Gold info in certain cases
    * Fix Grand Knight image being distorted in the sidebar
    * Fix bug #22251: Map labels not appearing in mp
+   * Fix bug: lobby sounds not all playing. This was fixed by adding a second dedicated channel
+     for UI sounds, and moving the "Ready to start" sound to the turn bell channel.
 
 Version 1.11.11:
  * Add-ons server:
