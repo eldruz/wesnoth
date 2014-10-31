@@ -30,7 +30,11 @@
 
 class config;
 
+struct SDL_RWops;
+
 namespace filesystem {
+	
+SDL_RWops* load_RWops(const std::string &path);
 
 /** An exception object used when an IO error occurs */
 struct io_exception : public game::error {
@@ -81,15 +85,16 @@ std::string get_next_filename(const std::string& name, const std::string& extens
 void set_user_config_dir(std::string path);
 void set_user_data_dir(std::string path);
 
-const std::string &get_user_config_dir();
-const std::string &get_user_data_dir();
-const std::string &get_cache_dir();
+std::string get_user_config_dir();
+std::string get_user_data_dir();
+std::string get_cache_dir();
 
 std::string get_cwd();
 std::string get_exe_dir();
 
 bool make_directory(const std::string& dirname);
 bool delete_directory(const std::string& dirname, const bool keep_pbl = false);
+bool delete_file(const std::string &filename);
 
 bool looks_like_pbl(const std::string& file);
 

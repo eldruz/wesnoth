@@ -1969,6 +1969,10 @@ std::string unit::absolute_image() const {
 	return cfg_["image_icon"].empty() ? cfg_["image"] : cfg_["image_icon"];
 }
 
+std::string unit::default_anim_image() const {
+	return cfg_["image"].empty() ? cfg_["image_icon"] : cfg_["image"];
+}
+
 void unit::apply_modifications()
 {
 	log_scope("apply mods");
@@ -1989,7 +1993,7 @@ void unit::apply_modifications()
 bool unit::invisible(const map_location& loc, bool see_all) const
 {
 	if (loc != get_location()) {
-		WRN_UT << "unit::invisible called: id = " << id() << " loc = " << loc << " get_loc = " << get_location() << std::endl;
+		DBG_UT << "unit::invisible called: id = " << id() << " loc = " << loc << " get_loc = " << get_location() << std::endl;
 	}
 
 	// This is a quick condition to check, and it does not depend on the

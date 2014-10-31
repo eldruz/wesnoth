@@ -24,6 +24,7 @@
 #include "map.hpp"
 #include "network.hpp" // ping_timeout
 #include "serialization/string_utils.hpp"
+#include "serialization/unicode_cast.hpp"
 #include "settings.hpp"
 #include "unit.hpp"
 #include "unit_map.hpp"
@@ -32,6 +33,7 @@
 #include <boost/foreach.hpp>
 #include <cassert>
 #ifdef _WIN32
+#include <boost/range/iterator_range.hpp>
 #include <windows.h> //GetUserName
 #endif
 
@@ -427,7 +429,7 @@ static std::string get_system_username()
 	if(GetUserNameW(buffer,&size)) {
 		//size includes a terminating null character.
 		assert(size > 0);
-		res = unicode_cast<utf8::string>(utf16::string(buffer, buffer + size - 1));
+		res = unicode_cast<utf8::string>(boost::iterator_range<wchar_t*>(buffer, buffer + size - 1));
 	}
 #else
 	if(char* const login = getenv("USER")) {

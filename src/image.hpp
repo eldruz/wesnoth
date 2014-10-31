@@ -247,6 +247,11 @@ namespace image {
 	/// precache the existence of files in the subdir (ex: "terrain/")
 	void precache_file_existence(const std::string& subdir = "");
 	bool precached_file_exists(const std::string& file);
+
+	std::string describe_versions();
+
+	void save_image(const locator& i_locator, const std::string& outfile);
+	void save_image(const surface& surf, const std::string& outfile);
 }
 
 #endif

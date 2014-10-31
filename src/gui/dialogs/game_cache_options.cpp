@@ -16,7 +16,7 @@
 
 #include "gui/dialogs/game_cache_options.hpp"
 
-#include "clipboard.hpp"
+#include "desktop/clipboard.hpp"
 #include "config_cache.hpp"
 #include "desktop/open.hpp"
 #include "filesystem.hpp"
@@ -92,6 +92,10 @@ void tgame_cache_options::pre_show(CVideo& video, twindow& window)
 	connect_signal_mouse_left_click(copy,
 									boost::bind(&tgame_cache_options::copy_to_clipboard_callback,
 												this));
+	if (!desktop::clipboard::available()) {
+		copy.set_active(false);
+		copy.set_tooltip(_("Clipboard support not found, contact your packager."));
+	}
 
 	tbutton& browse = find_widget<tbutton>(&window, "browse", false);
 	connect_signal_mouse_left_click(browse,
@@ -129,7 +133,7 @@ void tgame_cache_options::update_cache_size_display()
 
 void tgame_cache_options::copy_to_clipboard_callback()
 {
-	copy_to_clipboard(cache_path_, false);
+	desktop::clipboard::copy_to_clipboard(cache_path_, false);
 }
 
 void tgame_cache_options::browse_cache_callback()

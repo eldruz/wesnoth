@@ -29,7 +29,14 @@
 #include "image_modifications.hpp"
 #include "log.hpp"
 #include "gettext.hpp"
+#include "gui/dialogs/advanced_graphics_options.hpp"
+#include "preferences.hpp"
 #include "sdl/rect.hpp"
+
+#ifdef HAVE_LIBPNG
+#include "SDL_SavePNG/savepng.h"
+#endif
+
 #include "serialization/string_utils.hpp"
 #include "video.hpp"
 
@@ -439,7 +446,7 @@ static std::string get_localized_path (const std::string& file, const std::strin
 	// not have it when translated.
 	langs.push_back("en_US");
 	BOOST_FOREACH(const std::string &lang, langs) {
-		std::string loc_file = dir + "l10n" + "/" + lang + "/" + loc_base;
+		std::string loc_file = dir + "/" + "l10n" + "/" + lang + "/" + loc_base;
 		if (filesystem::file_exists(loc_file) && localized_file_uptodate(loc_file)) {
 			return loc_file;
 		}
@@ -450,7 +457,8 @@ static std::string get_localized_path (const std::string& file, const std::strin
 // Load overlay image and compose it with the original surface.
 static void add_localized_overlay (const std::string& ovr_file, surface &orig_surf)
 {
-	surface ovr_surf = IMG_Load(ovr_file.c_str());
+	SDL_RWops *rwops = filesystem::load_RWops(ovr_file);
+	surface ovr_surf = IMG_Load_RW(rwops, true); // SDL takes ownership of rwops
 	if (ovr_surf.null()) {
 		return;
 	}
@@ -476,7 +484,8 @@ static surface load_image_file(const image::locator &loc)
 			if (!loc_location.empty()) {
 				location = loc_location;
 			}
-			res = IMG_Load(location.c_str());
+			SDL_RWops *rwops = filesystem::load_RWops(location);
+			res = IMG_Load_RW(rwops, true); // SDL takes ownership of rwops
 			// If there was no standalone localized image, check if there is an overlay.
 			if (!res.null() && loc_location.empty()) {
 				const std::string ovr_location = get_localized_path(location, "--overlay");
@@ -740,6 +749,36 @@ void set_zoom(int amount)
 	}
 }
 
+static surface scale_surface_algorithm(const surface & res, int w, int h, gui2::tadvanced_graphics_options::SCALING_ALGORITHM algo)
+{
+	switch (algo)
+	{
+		case gui2::tadvanced_graphics_options::LINEAR:
+		{
+			return scale_surface(res, w, h);
+		}
+		case gui2::tadvanced_graphics_options::NEAREST_NEIGHBOR:
+		{
+			return scale_surface_nn(res, w, h);
+		}
+		case gui2::tadvanced_graphics_options::XBRZ_LIN:
+		{
+			int z_factor = std::min(w / res.get()->w, h / res.get()->h);
+			surface xbrz_temp(scale_surface_xbrz(res, std::max(std::min(z_factor,5),1)));
+			return scale_surface(xbrz_temp, w, h);
+		}
+		case gui2::tadvanced_graphics_options::XBRZ_NN:
+		{
+			int z_factor = std::min(w / res.get()->w, h / res.get()->h);
+			surface xbrz_temp(scale_surface_xbrz(res, std::max(std::min(z_factor,5),1)));
+			return scale_surface_nn(xbrz_temp, w, h);
+		}
+		default:
+			assert(false && "I don't know how to implement this scaling algorithm");
+			throw 42;
+	}
+}
+
 static surface get_hexed(const locator& i_locator)
 {
 	surface image(get_image(i_locator, UNSCALED));
@@ -753,7 +792,18 @@ static surface get_hexed(const locator& i_locator)
 static surface get_scaled_to_hex(const locator& i_locator)
 {
 	surface img = get_image(i_locator, HEXED);
-	return scale_surface(img, zoom, zoom);
+	//return scale_surface(img, zoom, zoom);
+
+	if (!img.null()) {
+		gui2::tadvanced_graphics_options::SCALING_ALGORITHM algo = gui2::tadvanced_graphics_options::LINEAR;
+		try {
+			algo = gui2::tadvanced_graphics_options::string_to_SCALING_ALGORITHM(preferences::get("scale_hex"));
+		} catch (bad_enum_cast &) {}
+
+		return scale_surface_algorithm(img, zoom, zoom, algo);
+	} else {
+		return surface(NULL);
+	}
 }
 
 static surface get_tod_colored(const locator& i_locator)
@@ -770,7 +820,12 @@ static surface get_scaled_to_zoom(const locator& i_locator)
 	surface res(get_image(i_locator, UNSCALED));
 	// For some reason haloes seems to have invalid images, protect against crashing
 	if(!res.null()) {
-		return scale_surface(res, ((res.get()->w * zoom) / tile_size), ((res.get()->h * zoom) / tile_size));
+		gui2::tadvanced_graphics_options::SCALING_ALGORITHM algo = gui2::tadvanced_graphics_options::LINEAR;
+		try {
+			algo = gui2::tadvanced_graphics_options::string_to_SCALING_ALGORITHM(preferences::get("scale_zoom"));
+		} catch (bad_enum_cast &) {}
+
+		return scale_surface_algorithm(res, ((res.get()->w * zoom) / tile_size), ((res.get()->h * zoom) / tile_size), algo);
 	} else {
 		return surface(NULL);
 	}
@@ -1186,6 +1241,53 @@ bool precached_file_exists(const std::string& file)
 		return b->second;
 	else
 		return false;
+}
+
+void save_image(const locator & i_locator, const std::string & filename)
+{
+	save_image(get_image(i_locator), filename);
+}
+
+void save_image(const surface & surf, const std::string & filename)
+{
+	#ifdef HAVE_LIBPNG
+	if (! ((filename.length() > 3) && (filename.substr(filename.length()-3, 3) == "bmp"))) {
+		LOG_DP << "Writing a png image to " << filename << std::endl;
+		//safest way,
+		SDL_Surface *tmp = SDL_PNGFormatAlpha(surf.get());
+		SDL_SavePNG(tmp, filename.c_str());
+		SDL_FreeSurface(tmp);
+		return ;
+	}
+	#endif
+
+	LOG_DP << "Writing a bmp image to " << filename << std::endl;
+	SDL_SaveBMP(surf, filename.c_str());
+}
+
+std::string describe_versions()
+{
+	std::stringstream ss;
+
+#ifdef SDL_IMAGE_VERSION
+	SDL_version compile_version;
+	SDL_IMAGE_VERSION(&compile_version);
+
+	ss << "Compiled with SDL_image version: "
+	<< static_cast<int> (compile_version.major) << "."
+	<< static_cast<int> (compile_version.minor) << "."
+        << static_cast<int> (compile_version.patch) << " \n";
+#endif
+
+#ifdef Image_Linked_Version
+	const SDL_version *link_version=Image_Linked_Version();
+	ss << "Running with SDL_image version: "
+	<< static_cast<int> (link_version->major) << "."
+	<< static_cast<int> (link_version->minor) << "."
+        << static_cast<int> (link_version->patch) << " .\n";
+#endif
+
+	return ss.str();
 }
 
 } // end namespace image

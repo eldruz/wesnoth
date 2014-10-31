@@ -64,7 +64,7 @@ bad_commandline_tuple::bad_commandline_tuple(const std::string& str,
 {
 }
 
-commandline_options::commandline_options ( int argc, char** argv ) :
+commandline_options::commandline_options (const std::vector<std::string>& args) :
 	bpp(),
 	bunzip2(),
 	bzip2(),
@@ -144,8 +144,8 @@ commandline_options::commandline_options ( int argc, char** argv ) :
 	version(false),
 	windowed(false),
 	with_replay(false),
-	argc_(argc),
-	argv_(argv),
+	args_(args.begin() + 1 , args.end()),
+	args0_(*args.begin()),
 	all_(),
 	visible_(),
 	hidden_()
@@ -178,6 +178,7 @@ commandline_options::commandline_options ( int argc, char** argv ) :
 		("nomusic", "runs the game without music.")
 		("nosound", "runs the game without sounds and music.")
 		("path", "prints the path to the data directory and exits.")
+		("render-image", po::value<two_strings>()->multitoken(), "takes two arguments: <image> <output>. Like screenshot, but instead of a map, takes a valid wesnoth 'image path string' with image path functions, and outputs to a windows .bmp file")
 		("rng-seed", po::value<unsigned int>(), "seeds the random number generator with number <arg>. Example: --rng-seed 0")
 		("screenshot", po::value<two_strings>()->multitoken(), "takes two arguments: <map> <output>. Saves a screenshot of <map> to <output> without initializing a screen. Editor must be compiled in for this to work.")
 		("server,s", po::value<std::string>()->implicit_value(std::string()), "connects to the host <arg> if specified or to the first host in your preferences.")
@@ -278,7 +279,7 @@ commandline_options::commandline_options ( int argc, char** argv ) :
 
 	po::variables_map vm;
 	const int parsing_style = po::command_line_style::default_style ^ po::command_line_style::allow_guessing;
-	po::store(po::command_line_parser(argc_,argv_).options(all_).positional(positional).style(parsing_style).run(),vm);
+	po::store(po::command_line_parser(args_).options(all_).positional(positional).style(parsing_style).run(),vm);
 
 	if (vm.count("ai-config"))
 		multiplayer_ai_config = parse_to_uint_string_tuples_(vm["ai-config"].as<std::vector<std::string> >());
@@ -410,6 +411,11 @@ commandline_options::commandline_options ( int argc, char** argv ) :
 		rng_seed = vm["rng-seed"].as<unsigned int>();
 	if (vm.count("scenario"))
 		multiplayer_scenario = vm["scenario"].as<std::string>();
+	if (vm.count("render-image"))
+	{
+		render_image = vm["render-image"].as<two_strings>().get<0>();
+		render_image_dst = vm["render-image"].as<two_strings>().get<1>();
+	}
 	if (vm.count("screenshot"))
 	{
 		screenshot = true;
@@ -559,7 +565,7 @@ std::vector<boost::tuple<unsigned int,std::string,std::string> > commandline_opt
 
 std::ostream& operator<<(std::ostream &os, const commandline_options& cmdline_opts)
 {
-	os << "Usage: " << cmdline_opts.argv_[0] << " [<options>] [<data-directory>]\n";
+	os << "Usage: " << cmdline_opts.args0_ << " [<options>] [<data-directory>]\n";
 	os << cmdline_opts.visible_;
 	return os;
 }

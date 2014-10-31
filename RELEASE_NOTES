@@ -18,21 +18,53 @@ CHANGES
 Example contents.
 [/section]
 
-[section="Updated OS X user data directory"]
-The OS X user data directory is now ~/Library/Application Support/Wesnoth_1.13, in preparation for the upcoming development release, Wesnoth 1.13.0. This means that preferences and add-ons need to be either reset/reloaded or be copied/linked from ~/Library/Application Support/Wesnoth_1.11.
-[/section]
-
 [section="fearless/healthy [effect]s"]
 instead of checking whether the trait id equals fearless/healthy we now have fearless/heathy [effect]s
 this means especialy that umcaddons that use their own fearless/healthy traits have to add those [effect]s in them.
 [/section]
 
 [section="play single move button in replay mode"]
-A button that allows playing one move at a time in replay mode has been added.
+A button that allows playing one move at a time in replay mode has been added. Thanks to Zappaman for this.
 [/section]
 
 [section="Multiplayer Alerts"]
-The multiplayer alerts, i.e. the sounds and desktop notifications such as related to mp lobby events and chat messages, can now be configured under Preferences > Multiplayer > Alerts. Individual events, such as players joining or leaving, private messages, messages from friends, etc. may now prompt a sound or notification, and may be handled differently in the lobby vs. in game. The advanced preference "lobby sounds" has been removed. The particular sound files which are played for each of these types of events, may now be easily reconfigured by changing some attributes in data/game_config.cfg.
+The multiplayer alerts, i.e. the sounds and desktop notifications such as related to mp lobby events and chat messages, can now be configured under Preferences > Multiplayer > Alerts. Individual events, such as players joining or leaving, private messages, messages from friends, etc. may now prompt a sound or notification, and may be handled differently in the lobby vs. in game. The advanced preferences "lobby sounds" and "desktop notifications" have been removed, having been subsumed by this new screen. The particular sound files which are played for each of these types of events, may now be easily reconfigured by changing some attributes in data/game_config.cfg.
+[/section]
+
+[section="Hyperlinks"]
+Added support for hyperlinks to GUI2. This means that the chat log and also the addon descriptions pages should now support rendering and clicking on hyperlinks.
+[/section]
+
+[section="New Filesystem Code"]
+Revised dependencies:
+
+[list]
+[*]SDL_mixer version ticked to 1.2.12
+[*]Boost filesystem (new), at version 1.44.
+[/list]
+
+On Windows only, Boost filesystem is needed at version 1.48, for boost::locale.
+
+The boost filesystem dep may be disabled, if compiling with scons, by passing it an argument. Then it will compile using the legacy filesystem code. (This may not be maintained in the long term, however.)
+
+(The new SDL_mixer requirement cannot be similarly disabled.)
+
+For those of you compiling Wesnoth on OS X using Xcode, this means that you need to download a new version of wesnoth_compile_mac_1.13.zip.
+[/section]
+
+[section="Help Browser"]
+Many new features, see changelog.
+[/section]
+
+[section="--render-image command line argument"]
+A new command-line argument "--render-image" has been added. It is similar to --screenshot, but instead of a map, it takes a wesnoth imagepath and generates at bitmap with the filters applied.
+
+Example usage:
+[code]
+wesnoth --render-image "units/undead-skeletal/banebow-bow-attack-1.png~SCALE(144,144)" "banebow.bmp"
+[/code]
+
+will generate a scaled image of a banebow attack sprite.
 [/section]
 
 [section="Example section 2"]

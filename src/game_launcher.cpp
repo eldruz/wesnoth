@@ -566,6 +566,36 @@ bool game_launcher::play_screenshot_mode()
 	return false;
 }
 
+bool game_launcher::play_render_image_mode()
+{
+	if(!cmdline_opts_.render_image) {
+		return true;
+	}
+
+	state_.classification().campaign_type = game_classification::MULTIPLAYER;
+	DBG_GENERAL << "Current campaign type: " << state_.classification().campaign_type << std::endl;
+
+	try {
+		resources::config_manager->
+			load_game_config_for_game(state_.classification());
+	} catch(config::error& e) {
+		std::cerr << "Error loading game config: " << e.what() << std::endl;
+		return false;
+	}
+
+	// A default output filename
+	std::string outfile = "wesnoth_image.bmp";
+
+	// If a output path was given as an argument, use that instead
+	if (cmdline_opts_.render_image_dst) {
+		outfile = *cmdline_opts_.render_image_dst;
+	}
+
+	image::save_image(*cmdline_opts_.render_image, outfile);
+
+	return false;
+}
+
 bool game_launcher::is_loading() const
 {
 	return !game::load_game_exception::game.empty();
@@ -654,26 +684,12 @@ bool game_launcher::load_game()
 	}
 
 	if(state_.classification().campaign_type == game_classification::MULTIPLAYER) {
-		BOOST_FOREACH(config &side, state_.get_starting_pos().child_range("side"))
-		{
-			if (side["controller"] == "network")
-				side["controller"] = "human";
-			if (side["controller"] == "network_ai")
-				side["controller"] = "ai";
-		}
+		state_.unify_controllers();
 		gui2::show_message(disp().video(), _("Warning") , _("This is a multiplayer scenario. Some parts of it may not work properly in single-player. It is recommended to load this scenario through the <b>Multiplayer</b> → <b>Load Game</b> dialog instead."), "", true, true);
 	}
 
 	if (load.cancel_orders()) {
-		BOOST_FOREACH(config &side, state_.get_starting_pos().child_range("side"))
-		{
-			if (side["controller"] != "human") continue;
-			BOOST_FOREACH(config &unit, side.child_range("unit"))
-			{
-				unit["goto_x"] = -999;
-				unit["goto_y"] = -999;
-			}
-		}
+		state_.cancel_orders();
 	}
 
 	return true;
@@ -880,7 +896,7 @@ bool game_launcher::play_multiplayer()
 			ERR_NET << "caught network::error: " << e.message << std::endl;
 			gui2::show_transient_message(disp().video()
 					, ""
-					, gettext(e.message.c_str()));
+					, translation::gettext(e.message.c_str()));
 		} else {
 			ERR_NET << "caught network::error" << std::endl;
 		}

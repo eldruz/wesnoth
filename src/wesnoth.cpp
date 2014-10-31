@@ -27,15 +27,18 @@
 #include "game_config.hpp"              // for path, debug, debug_lua, etc
 #include "game_config_manager.hpp"      // for game_config_manager, etc
 #include "game_launcher.hpp"          // for game_launcher, etc
+#include "gettext.hpp"
 #include "gui/auxiliary/event/handler.hpp"  // for tmanager
 #include "gui/dialogs/core_selection.hpp"  // for tcore_selection
 #include "gui/dialogs/title_screen.hpp"  // for ttitle_screen, etc
+#include "gui/dialogs/message.hpp" 	// for show_error_message
 #include "gui/widgets/helper.hpp"       // for init
 #include "help.hpp"                     // for help_manager
 #include "hotkey/command_executor.hpp"  // for basic_handler
 #include "image.hpp"                    // for flush_cache, etc
 #include "loadscreen.hpp"               // for loadscreen, etc
 #include "log.hpp"                      // for LOG_STREAM, general, logger, etc
+#include "network.hpp"			// for describe_versions
 #include "preferences.hpp"              // for core_id, etc
 #include "preferences_display.hpp"      // for display_manager
 #include "replay.hpp"                   // for recorder, replay
@@ -55,7 +58,6 @@
 #include "wml_exception.hpp"            // for twml_exception
 
 #include <SDL.h>                        // for SDL_Init, SDL_INIT_TIMER
-#include <libintl.h>                    // for bind_textdomain_codeset, etc
 #include <boost/foreach.hpp>            // for auto_any_base, etc
 #include <boost/iostreams/categories.hpp>  // for input, output
 #include <boost/iostreams/copy.hpp>     // for copy
@@ -83,7 +85,10 @@
 #include "SDL_events.h"                 // for SDL_EventState, etc
 #include "SDL_stdinc.h"                 // for SDL_putenv, Uint32
 #include "SDL_timer.h"                  // for SDL_GetTicks
-#include "SDL_version.h"                // for SDL_VERSION_ATLEAST
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #ifdef DEBUG_WINDOW_LAYOUT_GRAPHS
 #include "gui/widgets/debug.hpp"
@@ -303,6 +308,27 @@ static void handle_preprocess_command(const commandline_options& cmdline_opts)
 	std::cerr << "preprocessing finished. Took "<< SDL_GetTicks() - startTime << " ticks.\n";
 }
 
+static std::string describe_SDL_versions()
+{
+	SDL_version compiled;
+
+#ifdef SDL_VERSION
+	SDL_VERSION(&compiled);
+	std::stringstream ss;
+	ss << "Compiled with SDL version "
+	   << static_cast<int> (compiled.major) << "." << static_cast<int> (compiled.minor) << "." << static_cast<int> (compiled.patch) << " \n";
+#endif
+
+#ifdef SDL_GetVersion
+	SDL_version linked;
+	SDL_GetVersion(&linked);
+	ss << "Linked with SDL version "
+	   << static_cast<int> (linked.major) << "." << static_cast<int> (linked.minor) << "." << static_cast<int> (linked.patch) << " .\n";
+#endif
+
+	return ss.str();
+}
+
 /** Process commandline-arguments */
 static int process_command_args(const commandline_options& cmdline_opts) {
 
@@ -410,7 +436,7 @@ static int process_command_args(const commandline_options& cmdline_opts) {
 	if(cmdline_opts.rng_seed) {
 		srand(*cmdline_opts.rng_seed);
 	}
-	if(cmdline_opts.screenshot) {
+	if(cmdline_opts.screenshot || cmdline_opts.render_image) {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 		SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
 #else
@@ -422,7 +448,13 @@ static int process_command_args(const commandline_options& cmdline_opts) {
 		strict_validation_enabled = true;
 	}
 	if(cmdline_opts.version) {
-		std::cout << "Battle for Wesnoth" << " " << game_config::version << "\n";
+		std::cout << "Battle for Wesnoth" << " " << game_config::version << "\n\n";
+		std::cout << "Compiled with Boost version: " << BOOST_LIB_VERSION << "\n";
+		std::cout << font::describe_versions();
+		std::cout << describe_SDL_versions();
+		std::cout << sound::describe_versions();
+		std::cout << network::describe_versions();
+		std::cout << image::describe_versions();
 		return 0;
 	}
 
@@ -448,14 +480,12 @@ static void init_locale() {
 	    setlocale(LC_ALL, "English");
 	#else
 		std::setlocale(LC_ALL, "C");
-		std::setlocale(LC_MESSAGES, "");
+		translation::init();
 	#endif
 	const std::string& intl_dir = filesystem::get_intl_dir();
-	bindtextdomain (PACKAGE, intl_dir.c_str());
-	bind_textdomain_codeset (PACKAGE, "UTF-8");
-	bindtextdomain (PACKAGE "-lib", intl_dir.c_str());
-	bind_textdomain_codeset (PACKAGE "-lib", "UTF-8");
-	textdomain (PACKAGE);
+	translation::bind_textdomain(PACKAGE, intl_dir.c_str(), "UTF-8");
+	translation::bind_textdomain(PACKAGE "-lib", intl_dir.c_str(), "UTF-8");
+	translation::set_default_textdomain(PACKAGE);
 }
 
 /**
@@ -480,19 +510,19 @@ static void warn_early_init_failure()
  * Setups the game environment and enters
  * the titlescreen or game loops.
  */
-static int do_gameloop(int argc, char** argv)
+static int do_gameloop(const std::vector<std::string>& args)
 {
 	srand(time(NULL));
 
-	commandline_options cmdline_opts = commandline_options(argc,argv);
-	game_config::wesnoth_program_dir = filesystem::directory_name(argv[0]);
+	commandline_options cmdline_opts = commandline_options(args);
+	game_config::wesnoth_program_dir = filesystem::directory_name(args[0]);
 	int finished = process_command_args(cmdline_opts);
 	if(finished != -1) {
 		return finished;
 	}
 
 	boost::scoped_ptr<game_launcher> game(
-		new game_launcher(cmdline_opts,argv[0]));
+		new game_launcher(cmdline_opts,args[0].c_str()));
 	const int start_ticks = SDL_GetTicks();
 
 	init_locale();
@@ -616,6 +646,10 @@ static int do_gameloop(int argc, char** argv)
 			return 0;
 		}
 
+		if(game->play_render_image_mode() == false) {
+			return 0;
+		}
+
 		recorder.clear();
 
 		//Start directly a campaign
@@ -684,10 +718,14 @@ static int do_gameloop(int argc, char** argv)
 				continue;
 			}
 		} else if(res == gui2::ttitle_screen::CHANGE_LANGUAGE) {
-			if (game->change_language()) {
-				tips_of_day.clear();
-				t_string::reset_translations();
-				image::flush_cache();
+			try {
+				if (game->change_language()) {
+					tips_of_day.clear();
+					t_string::reset_translations();
+					image::flush_cache();
+				}
+			} catch ( std::runtime_error & e ) {
+				gui2::show_error_message(game->disp().video(), e.what());
 			}
 			continue;
 		} else if(res == gui2::ttitle_screen::EDIT_PREFERENCES) {
@@ -750,6 +788,57 @@ static int do_gameloop(int argc, char** argv)
 		}
 	}
 }
+#ifdef _WIN32
+static bool parse_commandline_argument(const char*& next, const char* end, std::string& res)
+{
+	//strip leading shitespace
+	while(next != end && *next == ' ')
+		++next;
+	if(next == end)
+		return false;
+
+	bool is_excaped = false;
+
+	for(;next != end; ++next)
+	{
+		if(*next == ' ' && !is_excaped) {
+			break;
+		}
+		else if(*next == '"' && !is_excaped) {
+			is_excaped = true;
+			continue;
+		}
+		else if(*next == '"' && is_excaped && next + 1 != end && *(next + 1) == '"') {
+			res.push_back('"');
+			++next;
+			continue;		
+		}
+		else if(*next == '"' && is_excaped ) {
+			is_excaped = false;
+			continue;	
+		}
+		else {
+			res.push_back(*next);
+		}
+	}
+	return true;
+}
+
+static std::vector<std::string> parse_commandline_arguments(std::string input)
+{
+	const char* start = &input[0];
+	const char* end = start + input.size();
+	std::string buffer;
+	std::vector<std::string> res;
+	
+	while(parse_commandline_argument(start, end, buffer))
+	{
+		res.push_back(std::string());
+		res.back().swap(buffer);
+	}
+	return res;
+}
+#endif
 
 
 #ifdef __native_client__
@@ -781,7 +870,19 @@ int main(int argc, char** argv)
 		execv(argv[0], argv);
 	}
 #endif
-
+#ifdef _WIN32
+	(void)argc;
+	(void)argv;
+	//windows argv is ansi encoded by default
+	std::vector<std::string> args = parse_commandline_arguments(unicode_cast<std::string>(std::wstring(GetCommandLineW())));
+#else
+	std::vector<std::string> args;
+	for(int i = 0; i < argc; ++i)
+	{
+		args.push_back(std::string(argv[i]));
+	}
+#endif
+	assert(!args.empty());
 	if(SDL_Init(SDL_INIT_TIMER) < 0) {
 		fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
 		return(1);
@@ -816,7 +917,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		const int res = do_gameloop(argc,argv);
+		const int res = do_gameloop(args);
 		safe_exit(res);
 	} catch(boost::program_options::error& e) {
 		std::cerr << "Error in command line: " << e.what() << '\n';

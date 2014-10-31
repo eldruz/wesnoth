@@ -735,7 +735,7 @@ function wml_actions.move_unit(cfg)
 			while true do
 				x = tonumber(x) or helper.wml_error(coordinate_error)
 				y = tonumber(y) or helper.wml_error(coordinate_error)
-				if not x == prevX and not y == prevY then x, y = wesnoth.find_vacant_tile(x, y, pass_check) end
+				if not (x == prevX and y == prevY) then x, y = wesnoth.find_vacant_tile(x, y, pass_check) end
 				if not x or not y then helper.wml_error("Could not find a suitable hex near to one of the target hexes in [move_unit].") end
 				move_string_x = string.format("%s,%u", move_string_x, x)
 				move_string_y = string.format("%s,%u", move_string_y, y)
@@ -1273,5 +1273,38 @@ function wml_actions.store_villages( cfg )
 				        owner_side = wesnoth.get_village_owner( village[1], village[2] ) or 0
 				      }
 				    )
+	end
+end
+
+function wml_actions.put_to_recall_list(cfg)
+	local units = wesnoth.get_units(cfg)
+
+	for i, unit in ipairs(units) do	
+		if cfg.heal then
+			unit.hitpoints = unit.max_hitpoints
+			unit.moves = unit.max_moves
+			unit.attacks_left = unit.max_attacks
+			unit.status.poisoned = false
+			unit.status.slowed = false
+		end
+		wesnoth.put_recall_unit(unit, unit.side)
+		wesnoth.put_unit(unit.x, unit.y)
+	end
+end
+
+function wml_actions.full_heal(cfg)
+	local units = wesnoth.get_units(cfg)
+
+	for i, unit in ipairs(units) do	
+		if (not unit.status.unhealable) or cfg.ignore_status then
+			unit.hitpoints = unit.max_hitpoints
+			if cfg.cures then
+				unit.status.poisoned = false
+				unit.status.slowed = false
+			end
+			if cfg.animate then
+				wesnoth.fire( "animate_unit", { flag = "healed" ,  with_bars = "yes" , { "filter" , { id = unit.id } } })
+			end
+		end
 	end
 end

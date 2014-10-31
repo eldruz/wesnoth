@@ -133,16 +133,6 @@ saved_game::saved_game(const saved_game& state)
 {
 }
 
-saved_game& saved_game::operator=(const saved_game& state)
-{
-	// Use copy constructor to make sure we are coherent
-	if (this != &state) {
-		this->~saved_game();
-		new (this) saved_game(state) ;
-	}
-	return *this ;
-}
-
 void saved_game::set_carryover_sides_start(config carryover_sides_start)
 {
 	carryover_.swap(carryover_sides_start);
@@ -504,5 +494,32 @@ void saved_game::update_label()
 		classification().label = starting_pos_["name"].str();
 	else {
 		classification().label = classification().abbrev + "-" + starting_pos_["name"];
+	}
+}
+
+void saved_game::cancel_orders()
+{
+	BOOST_FOREACH(config &side, this->starting_pos_.child_range("side"))
+	{
+		// for humans "goto_x/y" is used for multi-turn-moves
+		// for the ai "goto_x/y" is a way for wml to order the ai to move a unit to a certain place.
+		// we want to cancel human order but not to break wml.
+		if (side["controller"] != "human" && side["controller"] != "network") continue;
+		BOOST_FOREACH(config &unit, side.child_range("unit"))
+		{
+			unit["goto_x"] = -999;
+			unit["goto_y"] = -999;
+		}
+	}
+}
+
+void saved_game::unify_controllers()
+{
+	BOOST_FOREACH(config &side, this->starting_pos_.child_range("side"))
+	{
+		if (side["controller"] == "network")
+			side["controller"] = "human";
+		if (side["controller"] == "network_ai")
+			side["controller"] = "ai";
 	}
 }

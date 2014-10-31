@@ -16,7 +16,7 @@
 
 #include "gui/dialogs/game_paths.hpp"
 
-#include "clipboard.hpp"
+#include "desktop/clipboard.hpp"
 #include "desktop/open.hpp"
 #include "filesystem.hpp"
 #include "game_config.hpp"
@@ -27,6 +27,8 @@
 #include "gui/widgets/text.hpp"
 #include "gui/widgets/window.hpp"
 #include "serialization/string_utils.hpp"
+
+#include "gettext.hpp"
 
 #include <boost/bind.hpp>
 
@@ -111,6 +113,11 @@ void tgame_paths::pre_show(CVideo& /*video*/, twindow& window)
 			// open_object().
 			browse_w.set_visible(tcontrol::tvisible::invisible);
 		}
+
+		if(!desktop::clipboard::available()) {
+			copy_w.set_active(false);
+			copy_w.set_tooltip(_("Clipboard support not found, contact your packager."));
+		}
 	}
 }
 
@@ -121,6 +128,6 @@ void tgame_paths::browse_directory_callback(const std::string& path)
 
 void tgame_paths::copy_to_clipboard_callback(const std::string& path)
 {
-	copy_to_clipboard(path, false);
+	desktop::clipboard::copy_to_clipboard(path, false);
 }
 }

@@ -88,10 +88,23 @@ else(MSVC)
 		${Boost_IOSTREAMS_LIBRARY}
 		${Boost_REGEX_LIBRARY}
 		${Boost_PROGRAM_OPTIONS_LIBRARY}
-		${LIBINTL_LIBRARIES}
+		${LIBINTL_LIBRARY}
 		${sdl_gpu-lib}
 	)
 endif(MSVC)
+
+if(ENABLE_BOOST_FILESYSTEM AND NOT ENABLE_PANDORA)
+	set(common-external-libs
+		${common-external-libs}
+		${Boost_FILESYSTEM_LIBRARY}
+		${Boost_LOCALE_LIBRARY}
+	)
+else(ENABLE_BOOST_FILESYSTEM AND NOT ENABLE_PANDORA)
+	set(common-external-libs
+		${common-external-libs}
+		${LIBINTL_LIBRARY}
+	)
+endif(ENABLE_BOOST_FILESYSTEM AND NOT ENABLE_PANDORA)
 
 set(game-external-libs
 	${common-external-libs}
@@ -209,10 +222,8 @@ endif(ENABLE_SHARED_LIBRARIES)
 set(libwesnoth-core_STAT_SRC
 	color_range.cpp
 	config.cpp
-	filesystem.cpp
 	filesystem_common.cpp
 	game_config.cpp
-	gettext.cpp
 	hash.cpp
 	log.cpp
 	md5.cpp
@@ -228,6 +239,20 @@ set(libwesnoth-core_STAT_SRC
 	serialization/unicode.cpp
 	serialization/validator.cpp
 )
+
+if(ENABLE_BOOST_FILESYSTEM AND NOT ENABLE_PANDORA)
+	set(libwesnoth-core_STAT_SRC
+		${libwesnoth-core_STAT_SRC}
+		filesystem_boost.cpp
+		gettext_boost.cpp
+	)
+else(ENABLE_BOOST_FILESYSTEM AND NOT ENABLE_PANDORA)
+	set(libwesnoth-core_STAT_SRC
+		${libwesnoth-game_STAT_SRC}
+		filesystem.cpp
+		gettext.cpp
+	)
+endif(ENABLE_BOOST_FILESYSTEM AND NOT ENABLE_PANDORA)
 
 # a 'lib' is automatically set in front when creating the library (as in the filename)
 # internal reference is the name given here
@@ -365,6 +390,14 @@ if(LIBDBUS_FOUND)
 	)
 endif()
 
+if(PNG_FOUND)
+	set_sources_files_properties(
+		SDL_SavePNG/savepng.cpp
+		PROPERTIES
+			COMPILE_FLAGS "${CXX_FLAG_NO_OLD_STYLE_CAST}"
+	)
+endif()
+
 ########### Helper libraries ###############
 
 set(wesnoth-sdl_SRC
@@ -375,6 +408,7 @@ set(wesnoth-sdl_SRC
 	sdl/window.cpp
 	sdl/utils.cpp
 	sdl/shader.cpp
+	xBRZ/xbrz.cpp
 )
 
 add_library(wesnoth-sdl
@@ -786,6 +820,7 @@ set(wesnoth-main_SRC
 	gui/dialogs/addon/uninstall_list.cpp
 	gui/dialogs/addon_connect.cpp
 	gui/dialogs/addon_list.cpp
+	gui/dialogs/advanced_graphics_options.cpp
 	gui/dialogs/campaign_difficulty.cpp
 	gui/dialogs/campaign_selection.cpp
 	gui/dialogs/campaign_settings.cpp
@@ -946,7 +981,7 @@ set(wesnoth-main_SRC
 
 set(libwesnoth-game_STAT_SRC
 	arrow.cpp
-	clipboard.cpp
+	desktop/clipboard.cpp
 	construct_dialog.cpp
 	cursor.cpp
 	display.cpp
@@ -1025,6 +1060,14 @@ if(LIBDBUS_FOUND)
 		desktop/dbus_notification.cpp
 	)
 endif(LIBDBUS_FOUND)
+
+# If requested, compile and link this file also to be able to save png files
+if(ENABLE_LIBPNG AND PNG_FOUND)
+	set(libwesnoth-game_STAT_SRC
+		${libwesnoth-game_STAT_SRC}
+		SDL_SavePNG/savepng.cpp
+	)
+endif(ENABLE_LIBPNG AND PNG_FOUND)
 
 if(ENABLE_GAME AND ENABLE_TESTS)
 	set(libwesnoth-game_STAT_SRC

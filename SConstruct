@@ -73,6 +73,8 @@ opts.AddVariables(
     BoolVariable('lowmem', 'Set to reduce memory usage by removing extra functionality', False),
     BoolVariable('notifications', 'Enable support for desktop notifications', True),
     BoolVariable('nls','enable compile/install of gettext message catalogs',True),
+    BoolVariable('boostfilesystem', 'Use boost filesystem', True),
+    BoolVariable('png', 'Clear to disable writing png files for screenshots, images', True),
     PathVariable('prefix', 'autotools-style installation prefix', "/usr/local", PathVariable.PathAccept),
     PathVariable('prefsdir', 'user preferences directory', "", PathVariable.PathAccept),
     PathVariable('default_prefs_file', 'default preferences file name', "", PathVariable.PathAccept),
@@ -286,6 +288,10 @@ configure_args = dict(
     log_file="$build_dir/config.log", conf_dir="$build_dir/sconf_temp")
 
 env.MergeFlags(env["extra_flags_config"])
+
+# Some tests need to load parts of boost
+if env["boostfilesystem"]:
+    env.PrependENVPath('LD_LIBRARY_PATH', env["boostlibdir"])
 if env["prereqs"]:
     conf = env.Configure(**configure_args)
 
@@ -352,7 +358,7 @@ if env["prereqs"]:
             return \
                 conf.CheckSDL(require_version = '1.2.0') & \
                 conf.CheckSDL("SDL_ttf", require_version = "2.0.8") & \
-                conf.CheckSDL("SDL_mixer", require_version = '1.2.0') & \
+                conf.CheckSDL("SDL_mixer", require_version = '1.2.12') & \
                 conf.CheckSDL("SDL_image", require_version = '1.2.0')
 
     have_server_prereqs = (\
@@ -362,7 +368,11 @@ if env["prereqs"]:
         conf.CheckBoost("iostreams", require_version = "1.34.1") & \
         conf.CheckBoostIostreamsGZip() & \
         conf.CheckBoostIostreamsBZip2() & \
-        conf.CheckBoost("smart_ptr", header_only = True) \
+        conf.CheckBoost("smart_ptr", header_only = True) & \
+        conf.CheckBoost("system") & \
+        ((not env["boostfilesystem"]) or 
+            (conf.CheckBoost("filesystem", require_version = "1.44.0") & \
+            conf.CheckBoost("locale"))) \
             and Info("GOOD: Base prerequisites are met")) \
             or Warning("WARN: Base prerequisites are not met")
 
@@ -376,7 +386,8 @@ if env["prereqs"]:
         conf.CheckBoost("program_options", require_version="1.35.0") & \
         conf.CheckBoost("regex", require_version = "1.35.0") & \
         conf.CheckLib("vorbisfile") & \
-        conf.CheckOgg() or Warning("WARN: Client prerequisites are not met. wesnoth, cutter and exploder cannot be built")
+        conf.CheckOgg() & \
+        conf.CheckPNG()or Warning("WARN: Client prerequisites are not met. wesnoth, cutter and exploder cannot be built")
 
     have_X = False
     if have_client_prereqs:
@@ -389,6 +400,10 @@ if env["prereqs"]:
 
         if client_env['fribidi']:
             client_env['fribidi'] = conf.CheckPKG('fribidi >= 0.10.9') or Warning("Can't find libfribidi, disabling freebidi support.")
+
+        env["png"] = env["png"] and conf.CheckLib("png")
+        if env["png"]:
+            client_env.Append(CPPDEFINES = ["HAVE_LIBPNG"])
 
     if env["forum_user_handler"]:
         flags = env.ParseFlags("!mysql_config --libs --cflags")

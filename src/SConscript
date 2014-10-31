@@ -16,7 +16,6 @@ for env in [test_env, client_env, env]:
 libwesnoth_core_sources = Split("""
     color_range.cpp
     config.cpp
-    gettext.cpp
     hash.cpp
     log.cpp
     map.cpp
@@ -63,17 +62,18 @@ if env['default_prefs_file']:
 
 libwesnoth_core_sources.extend([
     game_config_env.Object("game_config.cpp"),
-    filesystem_env.Object("filesystem.cpp"),
     filesystem_env.Object("filesystem_common.cpp"),
+    filesystem_env.Object("filesystem_boost.cpp") if env["boostfilesystem"] else filesystem_env.Object("filesystem.cpp"),
+    filesystem_env.Object("gettext_boost.cpp") if env["boostfilesystem"] else filesystem_env.Object("gettext.cpp")
     ])
 
 libwesnoth_core = [env.Library("wesnoth_core", libwesnoth_core_sources)]
 
 libwesnoth_sources = Split("""
     arrow.cpp
-    clipboard.cpp
     construct_dialog.cpp
     cursor.cpp
+    desktop/clipboard.cpp
     display.cpp
     display_context.cpp
     events.cpp
@@ -158,6 +158,7 @@ libwesnoth_sdl_sources = Split("""
     sdl/image.cpp
     sdl/window.cpp
     tracer.cpp
+    xBRZ/xbrz.cpp
     """)
 libwesnoth_sdl = client_env.Library("wesnoth_sdl", libwesnoth_sdl_sources)
 
@@ -369,6 +370,7 @@ wesnoth_sources = Split("""
     gui/dialogs/addon/uninstall_list.cpp
     gui/dialogs/addon_connect.cpp
     gui/dialogs/addon_list.cpp
+    gui/dialogs/advanced_graphics_options.cpp
     gui/dialogs/campaign_difficulty.cpp
     gui/dialogs/campaign_selection.cpp
     gui/dialogs/campaign_settings.cpp
@@ -570,6 +572,9 @@ if env["PLATFORM"] == "win32":
 
 if env["notifications"]:
     wesnoth_sources.append("desktop/dbus_notification.cpp")
+
+if env["png"]:
+    wesnoth_sources.append("SDL_SavePNG/savepng.cpp")
 
 wesnoth_sources.extend(client_env.Object("game_preferences_display.cpp", EXTRA_DEFINE = env["PLATFORM"] != "win32" and "WESNOTH_PREFIX='\"$prefix\"'" or None))
 

@@ -16,7 +16,7 @@
 
 #include "gui/dialogs/addon/description.hpp"
 
-#include "clipboard.hpp"
+#include "desktop/clipboard.hpp"
 #include "desktop/open.hpp"
 #include "formula_string_utils.hpp"
 #include "gettext.hpp"
@@ -128,7 +128,7 @@ std::string describe_addon_state_info(const addon_tracking_info& state)
 			}
 			break;
 		case ADDON_INSTALLED_UPGRADABLE: {
-			const char* const vstr
+			const std::string vstr
 					= !state.can_publish
 							  ? _("addon_state^Installed ($local_version|), "
 								  "upgradable")
@@ -137,7 +137,7 @@ std::string describe_addon_state_info(const addon_tracking_info& state)
 			s = utils::interpolate_variables_into_string(vstr, &i18n_symbols);
 		} break;
 		case ADDON_INSTALLED_OUTDATED: {
-			const char* const vstr
+			const std::string vstr
 					= !state.can_publish
 							  ? _("addon_state^Installed ($local_version|), "
 								  "outdated on server")
@@ -363,7 +363,7 @@ void taddon_description::browse_url_callback()
 
 void taddon_description::copy_url_callback()
 {
-	copy_to_clipboard(feedback_url_, false);
+	desktop::clipboard::copy_to_clipboard(feedback_url_, false);
 }
 
 void taddon_description::pre_show(CVideo& /*video*/, twindow& window)
@@ -382,9 +382,15 @@ void taddon_description::pre_show(CVideo& /*video*/, twindow& window)
 		connect_signal_mouse_left_click(
 				url_go_button,
 				boost::bind(&taddon_description::browse_url_callback, this));
+
 		connect_signal_mouse_left_click(
 				url_copy_button,
 				boost::bind(&taddon_description::copy_url_callback, this));
+
+		if (!desktop::clipboard::available()) {
+			url_copy_button.set_active(false);
+			url_copy_button.set_tooltip(_("Clipboard support not found, contact your packager."));
+		}
 	} else {
 		url_go_button.set_active(false);
 		url_copy_button.set_active(false);

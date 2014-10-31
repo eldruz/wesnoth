@@ -40,6 +40,8 @@
 #include "unit_helper.hpp"
 #include "wml_separators.hpp"
 #include "serialization/parser.hpp"
+#include "time_of_day.hpp"
+#include "tod_manager.hpp"
 
 #include <boost/foreach.hpp>
 
@@ -578,6 +580,7 @@ enum UNIT_DESCRIPTION_TYPE {FULL_DESCRIPTION, NO_DESCRIPTION, NON_REVEALING_DESC
 /// encountered.
 static UNIT_DESCRIPTION_TYPE description_type(const unit_type &type);
 static std::vector<topic> generate_ability_topics(const bool);
+static std::vector<topic> generate_time_of_day_topics(const bool);
 static std::vector<topic> generate_weapon_special_topics(const bool);
 
 static void generate_era_sections(const config *help_cfg, section &sec, int level);
@@ -1071,6 +1074,8 @@ std::vector<topic> generate_topics(const bool sort_generated,const std::string &
 		res = generate_ability_topics(sort_generated);
 	} else if (generator == "weapon_specials") {
 		res = generate_weapon_special_topics(sort_generated);
+	} else if (generator == "time_of_days") {
+		res = generate_time_of_day_topics(sort_generated);
 	} else {
 		std::vector<std::string> parts = utils::split(generator, ':', utils::STRIP_SPACES);
 		if (parts[0] == "units" && parts.size()>1) {
@@ -1153,6 +1158,38 @@ const std::vector<std::string>& topic_text::parsed_text() const
 		generator_ = NULL;
 	}
 	return parsed_text_;
+}
+
+std::vector<topic> generate_time_of_day_topics(const bool /*sort_generated*/)
+{
+	std::vector<topic> topics;
+	std::stringstream toplevel;
+
+	if (! resources::tod_manager) {
+		toplevel << N_("Only available during a scenario.");
+		topics.push_back( topic("Time of Day Schedule", "..schedule", toplevel.str()) );
+		return topics;
+	}
+	const std::vector<time_of_day>& times = resources::tod_manager->times();
+	BOOST_FOREACH(const time_of_day& time, times)
+	{
+		const std::string id = "time_of_day_" + time.id;
+		const std::string image = "<img>src='" + time.image + "'</img>";
+		std::stringstream text;
+
+		toplevel << make_link(time.name.str(), id) << jump_to(160) <<
+				image << jump(30) << time.lawful_bonus << '\n';
+
+		text << image << '\n' <<
+				time.description.str() << '\n' <<
+				"Lawful Bonus: " << time.lawful_bonus << '\n' <<
+				'\n' << make_link(N_("Schedule"), "..schedule");
+
+		topics.push_back( topic(time.name.str(), id, text.str()) );
+	}
+
+	topics.push_back( topic("Time of Day Schedule", "..schedule", toplevel.str()) );
+	return topics;
 }
 
 std::vector<topic> generate_weapon_special_topics(const bool sort_generated)
@@ -1584,7 +1621,7 @@ class unit_topic_generator: public topic_generator
 	const unit_type& type_;
 	const std::string variation_;
 	typedef std::pair< std::string, unsigned > item;
-	void push_header(std::vector< item > &row, char const *name) const {
+	void push_header(std::vector< item > &row,  const std::string& name) const {
 		row.push_back(item(bold(name), font::line_width(name, normal_font_size, TTF_STYLE_BOLD)));
 	}
 public:
@@ -1601,16 +1638,16 @@ public:
 
 		// Show the unit's image and its level.
 #ifdef LOW_MEM
-		ss << "<img>src='" << male_type.image() << "'</img> ";
+		ss << "<img>src='" << male_type.image() << "~xBRZ(2)'</img> ";
 #else
-		ss << "<img>src='" << male_type.image() << "~RC(" << male_type.flag_rgb() << ">1)" << "'</img> ";
+		ss << "<img>src='" << male_type.image() << "~RC(" << male_type.flag_rgb() << ">1)~xBRZ(2)" << "'</img> ";
 #endif
 
 		if (&female_type != &male_type)
 #ifdef LOW_MEM
-			ss << "<img>src='" << female_type.image() << "'</img> ";
+			ss << "<img>src='" << female_type.image() << "~xBRZ(2)'</img> ";
 #else
-			ss << "<img>src='" << female_type.image() << "~RC(" << female_type.flag_rgb() << ">1)" << "'</img> ";
+			ss << "<img>src='" << female_type.image() << "~RC(" << female_type.flag_rgb() << ">1)~xBRZ(2)" << "'</img> ";
 #endif
 
 
@@ -1736,7 +1773,7 @@ public:
 
 			BOOST_FOREACH(const config & trait, traits) {
 				const std::string trait_name = trait["male_name"];
-				std::string lang_trait_name = gettext(trait_name.c_str());
+				std::string lang_trait_name = translation::gettext(trait_name.c_str());
 				const std::string ref_id = "traits_"+trait["id"].str();
 				((trait["availability"].str() == "musthave") ? must_have_traits : random_traits).push_back(std::make_pair(lang_trait_name, ref_id));
 			}
@@ -1781,7 +1818,7 @@ public:
 				 ability_end = type_.abilities().end();
 				 ability_it != ability_end; ++ability_it) {
 				const std::string ref_id = "ability_" + ability_it->base_str();
-				std::string lang_ability = gettext(ability_it->c_str());
+				std::string lang_ability = translation::gettext(ability_it->c_str());
 				ss << make_link(lang_ability, ref_id);
 				if (ability_it + 1 != ability_end)
 					ss << ", ";
@@ -1797,7 +1834,7 @@ public:
 				 ability_end = type_.adv_abilities().end();
 				 ability_it != ability_end; ++ability_it) {
 				const std::string ref_id = "ability_" + ability_it->base_str();
-				std::string lang_ability = gettext(ability_it->c_str());
+				std::string lang_ability = translation::gettext(ability_it->c_str());
 				ss << make_link(lang_ability, ref_id);
 				if (ability_it + 1 != ability_end)
 					ss << ", ";

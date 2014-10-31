@@ -31,12 +31,14 @@
 #include "serialization/parser.hpp"
 #include "serialization/preprocessor.hpp"
 #include "serialization/string_utils.hpp"
+#include "serialization/unicode.hpp"
 
 #include <boost/foreach.hpp>
 
 #include <list>
 #include <set>
 #include <stack>
+#include <sstream>
 
 #include <cairo-features.h>
 
@@ -228,7 +230,8 @@ static TTF_Font* open_font(const std::string& fname, int size)
 		}
 	}
 
-	TTF_Font* font = TTF_OpenFont(name.c_str(),size);
+	SDL_RWops *rwops = filesystem::load_RWops(name);
+	TTF_Font* font = TTF_OpenFontRW(rwops, true, size); // SDL takes ownership of rwops
 	if(font == NULL) {
 		ERR_FT << "Failed opening font: TTF_OpenFont: " << TTF_GetError() << std::endl;
 		return NULL;
@@ -318,6 +321,19 @@ private:
 
 namespace font {
 
+std::string describe_versions()
+{
+	std::stringstream ss;
+
+	ss << "Compiled with Cairo version: " << CAIRO_VERSION_STRING << std::endl;
+	ss << "Running with Cairo version:  " << cairo_version_string() << std::endl;
+
+	ss << "Compiled with Pango version: " << PANGO_VERSION_STRING << std::endl;
+	ss << "Running with Pango version:  " << pango_version_string() << std::endl;
+
+	return ss.str();
+}
+
 manager::manager()
 {
 	const int res = TTF_Init();
@@ -347,8 +363,7 @@ void manager::update_font_path() const
 
 void manager::init() const
 {
-	LOG_FT << "Cairo version: " << cairo_version_string() << std::endl;
-	LOG_FT << "Pango version: " << pango_version_string() << std::endl;
+	LOG_FT << describe_versions() << std::endl;
 
 #ifdef CAIRO_HAS_FT_FONT
 	if (!FcConfigAppFontAddDir(FcConfigGetCurrent(),
@@ -362,10 +377,15 @@ void manager::init() const
 #if CAIRO_HAS_WIN32_FONT
 	BOOST_FOREACH(const std::string& path, filesystem::get_binary_paths("fonts")) {
 		std::vector<std::string> files;
-		filesystem::get_files_in_dir(path, &files, NULL, filesystem::ENTIRE_FILE_PATH);
-		BOOST_FOREACH(const std::string& file, files)
+		if(filesystem::is_directory(path))
+			filesystem::get_files_in_dir(path, &files, NULL, filesystem::ENTIRE_FILE_PATH);
+		BOOST_FOREACH(const std::string& file, files) {
 			if(file.substr(file.length() - 4) == ".ttf" || file.substr(file.length() - 4) == ".ttc")
-				AddFontResourceA(file.c_str());
+			{
+				const std::wstring wfile = unicode_cast<std::wstring>(file);
+				AddFontResourceW(wfile.c_str());
+			}
+		}
 	}
 #endif
 }
@@ -379,10 +399,15 @@ void manager::deinit() const
 #if CAIRO_HAS_WIN32_FONT
 	BOOST_FOREACH(const std::string& path, filesystem::get_binary_paths("fonts")) {
 		std::vector<std::string> files;
-		filesystem::get_files_in_dir(path, &files, NULL, filesystem::ENTIRE_FILE_PATH);
-		BOOST_FOREACH(const std::string& file, files)
+		if(filesystem::is_directory(path))
+			filesystem::get_files_in_dir(path, &files, NULL, filesystem::ENTIRE_FILE_PATH);
+		BOOST_FOREACH(const std::string& file, files) {
 			if(file.substr(file.length() - 4) == ".ttf" || file.substr(file.length() - 4) == ".ttc")
-				RemoveFontResourceA(file.c_str());
+			{
+				const std::wstring wfile = unicode_cast<std::wstring>(file);
+				RemoveFontResourceW(wfile.c_str());
+			}
+		}
 	}
 #endif
 }

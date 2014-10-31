@@ -29,11 +29,18 @@
 #include <boost/foreach.hpp>
 
 #include <list>
+#include <string>
+#include <sstream>
 
 static lg::log_domain log_audio("audio");
 #define DBG_AUDIO LOG_STREAM(debug, log_audio)
 #define LOG_AUDIO LOG_STREAM(info, log_audio)
 #define ERR_AUDIO LOG_STREAM(err, log_audio)
+
+
+#if (MIX_MAJOR_VERSION < 1) || (MIX_MAJOR_VERSION == 1) && ((MIX_MINOR_VERSION < 2) || (MIX_MINOR_VERSION == 2) && (MIX_PATCHLEVEL <= 11))
+#define SDL_MIXER_OLD_VERSION
+#endif
 
 namespace sound {
 // Channel-chunk mapping lets us know, if we can safely free a given chunk
@@ -499,7 +506,14 @@ static void play_new_music()
 	std::map<std::string,Mix_Music*>::const_iterator itor = music_cache.find(filename);
 	if(itor == music_cache.end()) {
 		LOG_AUDIO << "attempting to insert track '" << filename << "' into cache\n";
+
+#ifndef SDL_MIXER_OLD_VERSION
+		SDL_RWops *rwops = filesystem::load_RWops(filename);
+		Mix_Music* const music = Mix_LoadMUSType_RW(rwops, MUS_NONE, true); // SDL takes ownership of rwops
+#else
 		Mix_Music* const music = Mix_LoadMUS(filename.c_str());
+#endif
+
 		if(music == NULL) {
 			ERR_AUDIO << "Could not load music file '" << filename << "': "
 					  << Mix_GetError() << "\n";
@@ -721,7 +735,12 @@ static Mix_Chunk* load_chunk(const std::string& file, channel_group group)
 		std::string const &filename = filesystem::get_binary_file_location("sounds", file);
 
 		if (!filename.empty()) {
+#ifndef SDL_MIXER_OLD_VERSION
+			SDL_RWops *rwops = filesystem::load_RWops(filename);
+			temp_chunk.set_data(Mix_LoadWAV_RW(rwops, true)); // SDL takes ownership of rwops
+#else
 			temp_chunk.set_data(Mix_LoadWAV(filename.c_str()));
+#endif
 		} else {
 			ERR_AUDIO << "Could not load sound file '" << file << "'." << std::endl;
 			throw chunk_load_exception();
@@ -886,6 +905,31 @@ void set_UI_volume(int vol)
 			Mix_Volume(i, vol);
 		}
 	}
+}
+
+std::string describe_versions()
+{
+	std::stringstream ss;
+
+#ifdef SDL_MIXER_VERSION
+	SDL_version compile_version;
+	SDL_MIXER_VERSION(&compile_version);
+
+	ss << "Compiled with SDL_mixer version: "
+	<< static_cast<int> (compile_version.major) << "."
+	<< static_cast<int> (compile_version.minor) << "."
+        << static_cast<int> (compile_version.patch) << " \n";
+#endif
+
+#ifdef Mix_Linked_Version
+	const SDL_version *link_version=Mix_Linked_Version();
+	ss << "Running with SDL_mixer version: "
+	<< static_cast<int> (link_version->major) << "."
+	<< static_cast<int> (link_version->minor) << "."
+        << static_cast<int> (link_version->patch) << " .\n";
+#endif
+
+	return ss.str();
 }
 
 } // end of sound namespace

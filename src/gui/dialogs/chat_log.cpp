@@ -30,12 +30,14 @@
 #include "gui/widgets/slider.hpp"
 #include "utils/foreach.tpp"
 
-#include "../../clipboard.hpp"
+#include "desktop/clipboard.hpp"
+#include "serialization/unicode.hpp"
 #include "../../game_preferences.hpp"
 #include "../../log.hpp"
 #include "../../resources.hpp"
 #include "../../team.hpp"
 #include "../../replay.hpp"
+#include "gettext.hpp"
 
 #include <vector>
 #include <boost/bind.hpp>
@@ -201,7 +203,7 @@ public:
 	{
 		std::ostringstream s;
 		stream_log(s, first, last, true);
-		copy_to_clipboard(s.str(), false);
+		desktop::clipboard::copy_to_clipboard(s.str(), false);
 	}
 };
 
@@ -410,6 +412,10 @@ public:
 				boost::bind(&view::handle_copy_button_clicked,
 							this,
 							boost::ref(window)));
+		if (!desktop::clipboard::available()) {
+			model_.copy_button->set_active(false);
+			model_.copy_button->set_tooltip(_("Clipboard support not found, contact your packager."));
+		}
 
 		model_.page_label = &find_widget<tcontrol>(&window, "page_label", false);
 

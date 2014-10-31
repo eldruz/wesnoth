@@ -34,6 +34,7 @@
 #include "play_controller.hpp" //note: this can probably be refactored out
 #include "reports.hpp"
 #include "resources.hpp"
+#include "SDL_SavePNG/savepng.h"
 #include "synced_context.hpp"
 #include "team.hpp"
 #include "terrain_builder.hpp"
@@ -72,7 +73,7 @@ namespace {
 	const int SmallZoom   = DefaultZoom / 2;
 
 	const int MinZoom = 4;
-	const int MaxZoom = 200;
+	const int MaxZoom = 288;
 	size_t sunset_delay = 0;
 
 	bool benchmark = false;
@@ -770,7 +771,9 @@ int display::screenshot(std::string filename, bool map_screenshot)
 	int size = 0;
 	if (!map_screenshot) {
 		surface screenshot_surf = screen_.getSurface();
-		SDL_SaveBMP(screenshot_surf, filename.c_str());
+
+		image::save_image(screenshot_surf, filename);
+
 		size = screenshot_surf->w * screenshot_surf->h;
 	} else {
 		if (get_map().empty()) {
@@ -802,7 +805,7 @@ int display::screenshot(std::string filename, bool map_screenshot)
 		draw(true,true);
 
 		// finally save the image on disk
-		SDL_SaveBMP(map_screenshot_surf_, filename.c_str());
+		image::save_image(map_screenshot_surf_,filename);
 
 		//NOTE: need to be sure that we free this huge surface (is it enough?)
 		map_screenshot_surf_ = NULL;
@@ -2282,6 +2285,7 @@ bool display::set_zoom(int amount, bool absolute)
 	if (new_zoom > MaxZoom) {
 		new_zoom = MaxZoom;
 	}
+	LOG_DP << "new_zoom = " << new_zoom << std::endl;
 	if (new_zoom != zoom_) {
 		gui::slider* zoom_slider = find_slider("map-zoom-slider");
 		if (zoom_slider) {

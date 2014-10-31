@@ -83,8 +83,10 @@ option(ENABLE_TESTS "Build unit tests")
 option(ENABLE_NLS "Enable building of translations" ON)
 option(ENABLE_LOW_MEM "Reduce memory usage by removing extra functionality" OFF)
 option(ENABLE_OMP "Enables OpenMP, and has additional dependencies" OFF)
-option(ENABLE_PANDORA "Add support for the OpenPandora by deactivating libvorbis support" OFF)
+option(ENABLE_PANDORA "Add support for the OpenPandora by deactivating libvorbis support and boost filesystem support, this overrides the boost filesystem option below. This also reduces the SDL_mixer dependency to 1.2 rather than 1.2.12." OFF)
 option(ENABLE_SDL_GPU "Enable building with SDL_gpu (experimental" OFF)
+option(ENABLE_BOOST_FILESYSTEM "Enable building with the boost filesystem and boost locale code" ON)
+option(ENABLE_LIBPNG "Enable support for writing png files (screenshots, images)" ON)
 
 if(NOT DEFINED ENABLE_DISPLAY_REVISION)
 	# Test whether the code is used in a repository if not autorevision will
@@ -547,7 +549,12 @@ if(ENABLE_TOOLS OR ENABLE_GAME OR ENABLE_TESTS)
 	find_package( SDL_image 1.2 REQUIRED )
 endif(ENABLE_TOOLS OR ENABLE_GAME OR ENABLE_TESTS)
 if(ENABLE_GAME OR ENABLE_TESTS)
-	find_package( SDL_mixer 1.2 REQUIRED )
+	if(ENABLE_PANDORA)
+		find_package( SDL_mixer 1.2 REQUIRED )
+	else(ENABLE_PANDORA)
+		find_package( SDL_mixer 1.2.12 REQUIRED )
+	endif(ENABLE_PANDORA)
+
 	find_package( SDL_ttf 2.0.8 REQUIRED )
 
 	if(NOT MSVC)
@@ -586,6 +593,17 @@ if(ENABLE_GAME)
 		endif(LIBDBUS_FOUND)
 	endif(ENABLE_NOTIFICATIONS)
 
+	if(ENABLE_BOOST_FILESYSTEM)
+		find_package( Boost 1.44 REQUIRED COMPONENTS filesystem )
+		find_package( Boost 1.48 REQUIRED COMPONENTS locale )
+	endif(ENABLE_BOOST_FILESYSTEM)
+
+	find_package( PNG )
+	if(ENABLE_LIBPNG AND PNG_FOUND)
+		add_definitions(-DHAVE_LIBPNG)
+	else
+		message("Could not find lib PNG. Disabling support for writing PNG images.")	
+	endif()
 endif(ENABLE_GAME)
 
 if(ENABLE_POT_UPDATE_TARGET)

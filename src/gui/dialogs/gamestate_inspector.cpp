@@ -27,7 +27,7 @@
 #include "gui/widgets/settings.hpp"
 #include "gui/widgets/window.hpp"
 
-#include "clipboard.hpp"
+#include "desktop/clipboard.hpp"
 #include "serialization/parser.hpp" // for write()
 #include "utils/foreach.tpp"
 
@@ -602,7 +602,7 @@ public:
 
 	void handle_copy_button_clicked()
 	{
-		copy_to_clipboard(model_.inspect->label(), false);
+		desktop::clipboard::copy_to_clipboard(model_.inspect->label(), false);
 	}
 
 
@@ -688,6 +688,10 @@ public:
 				boost::bind(&tgamestate_inspector::view::handle_copy_button_clicked,
 							this,
 							boost::ref(window)));
+		if (!desktop::clipboard::available()) {
+			model_.copy_button->set_active(false);
+			model_.copy_button->set_tooltip(_("Clipboard support not found, contact your packager."));
+		}
 	}
 
 private:

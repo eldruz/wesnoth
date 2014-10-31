@@ -16,7 +16,8 @@
 
 #include "global.hpp"
 
-#include "clipboard.hpp"
+#include "desktop/clipboard.hpp"
+#include "serialization/unicode.hpp"
 #include <algorithm>
 
 #include <SDL_events.h>
@@ -32,6 +33,10 @@
  * Note SDL 2.0 has its own clipboard routines, but they don't support
  * different clipboards (yet).
  */
+
+namespace desktop {
+
+namespace clipboard {
 
 void copy_to_clipboard(const std::string& text, const bool)
 {
@@ -54,6 +59,10 @@ void handle_system_event(const SDL_Event& /*event*/)
 {
 }
 
+} // end namespace clipboard
+
+} // end namespace desktop
+
 #else
 
 #if defined(_X11) && !defined(__APPLE__)
@@ -62,6 +71,8 @@ void handle_system_event(const SDL_Event& /*event*/)
 
 #include "SDL_syswm.h"
 
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
 #include <unistd.h>
 
 /**
@@ -221,6 +232,10 @@ static std::string clipboard_string;
 */
 static std::string primary_string;
 
+namespace desktop {
+
+namespace clipboard {
+
 void handle_system_event(const SDL_Event& event)
 {
 	XEvent& xev = event.syswm.msg->event.xevent;
@@ -312,6 +327,10 @@ void copy_to_clipboard(const std::string& text, const bool mouse)
 	}
 }
 
+} // end namespace clipboard
+
+} // end namespace desktop
+
 /**
  * Tries to grab a given target.
  * Returns true if successful, false otherwise.
@@ -375,6 +394,10 @@ static bool try_grab_target(Atom source, Atom target, std::string& ret)
 	return false;
 }
 
+namespace desktop {
+
+namespace clipboard {
+
 std::string copy_from_clipboard(const bool mouse)
 {
 	// in-wesnoth copy-paste
@@ -406,10 +429,23 @@ std::string copy_from_clipboard(const bool mouse)
 	return "";
 }
 
+bool available()
+{
+	return true;
+}
+
+} // end namespace clipboard
+
+} // end namespace desktop
+
 #endif
 #ifdef _WIN32
 #include <windows.h>
 #define CLIPBOARD_FUNCS_DEFINED
+
+namespace desktop {
+
+namespace clipboard {
 
 void handle_system_event(const SDL_Event& )
 {}
@@ -435,44 +471,56 @@ void copy_to_clipboard(const std::string& text, const bool)
 		++last;
 	}
 
-	const HGLOBAL hglb = GlobalAlloc(GMEM_MOVEABLE, (str.size() + 1) * sizeof(TCHAR));
+	std::wstring wstr = unicode_cast<std::wstring>(str);
+
+	const HGLOBAL hglb = GlobalAlloc(GMEM_MOVEABLE, (wstr.size() + 1) * sizeof(wchar_t));
 	if(hglb == NULL) {
 		CloseClipboard();
 		return;
 	}
-	char* const buffer = reinterpret_cast<char* const>(GlobalLock(hglb));
-	strcpy(buffer, str.c_str());
+	wchar_t* const buffer = reinterpret_cast<wchar_t* const>(GlobalLock(hglb));
+	wcscpy(buffer, wstr.c_str());
 	GlobalUnlock(hglb);
-	SetClipboardData(CF_TEXT, hglb);
+	SetClipboardData(CF_UNICODETEXT, hglb);
 	CloseClipboard();
 }
 
 std::string copy_from_clipboard(const bool)
 {
-	if(!IsClipboardFormatAvailable(CF_TEXT))
+	if(!IsClipboardFormatAvailable(CF_UNICODETEXT))
 		return "";
 	if(!OpenClipboard(NULL))
 		return "";
 
-	HGLOBAL hglb = GetClipboardData(CF_TEXT);
+	HGLOBAL hglb = GetClipboardData(CF_UNICODETEXT);
 	if(hglb == NULL) {
 		CloseClipboard();
 		return "";
 	}
-	char const * buffer = reinterpret_cast<char*>(GlobalLock(hglb));
+	wchar_t const * buffer = reinterpret_cast<wchar_t*>(GlobalLock(hglb));
 	if(buffer == NULL) {
 		CloseClipboard();
 		return "";
 	}
 
+	std::wstring str(buffer);
 	// Convert newlines
-	std::string str(buffer);
-	str.erase(std::remove(str.begin(),str.end(),'\r'),str.end());
-
+	str.erase(std::remove(str.begin(),str.end(), L'\r'), str.end());
 	GlobalUnlock(hglb);
 	CloseClipboard();
-	return str;
+
+	return unicode_cast<std::string>(str);
 }
+
+bool available()
+{
+	return true;
+}
+
+
+} // end namespace clipboard
+
+} // end namespace desktop
 
 #endif
 
@@ -480,6 +528,10 @@ std::string copy_from_clipboard(const bool)
 #define CLIPBOARD_FUNCS_DEFINED
 
 #include <Carbon/Carbon.h>
+
+namespace desktop {
+
+namespace clipboard {
 
 void copy_to_clipboard(const std::string& text, const bool)
 {
@@ -559,9 +611,22 @@ void handle_system_event(const SDL_Event& /*event*/)
 {
 }
 
+bool available()
+{
+	return true;
+}
+
+} // end namespace clipboard
+
+} // end namespace desktop
+
 #endif
 
 #ifndef CLIPBOARD_FUNCS_DEFINED
+
+namespace desktop {
+
+namespace clipboard {
 
 void copy_to_clipboard(const std::string& /*text*/, const bool)
 {
@@ -576,6 +641,14 @@ void handle_system_event(const SDL_Event& /*event*/)
 {
 }
 
-#endif
-#endif
+bool available()
+{
+	return false;
+}
 
+} // end namespace clipboard
+
+} // end namespace desktop
+
+#endif
+#endif

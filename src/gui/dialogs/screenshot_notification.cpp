@@ -16,7 +16,7 @@
 
 #include "gui/dialogs/screenshot_notification.hpp"
 
-#include "clipboard.hpp"
+#include "desktop/clipboard.hpp"
 #include "desktop/open.hpp"
 #include "filesystem.hpp"
 #include "gui/auxiliary/find_widget.tpp"
@@ -81,7 +81,12 @@ void tscreenshot_notification::pre_show(CVideo& /*video*/, twindow& window)
 
 	tbutton& copy_b = find_widget<tbutton>(&window, "copy", false);
 	connect_signal_mouse_left_click(
-			copy_b, boost::bind(&copy_to_clipboard, boost::ref(path_), false));
+			copy_b, boost::bind(&desktop::clipboard::copy_to_clipboard, boost::ref(path_), false));
+
+	if (!desktop::clipboard::available()) {
+		copy_b.set_active(false);
+		copy_b.set_tooltip(_("Clipboard support not found, contact your packager."));
+	}
 
 	tbutton& open_b = find_widget<tbutton>(&window, "open", false);
 	connect_signal_mouse_left_click(

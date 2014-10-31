@@ -39,7 +39,7 @@ static lg::log_domain log_engine("engine");
 static lg::log_domain log_enginerefac("enginerefac");
 #define LOG_RG LOG_STREAM(info, log_enginerefac)
 
-#ifdef _WIN32
+#if 0
 	#ifdef INADDR_ANY
 		#undef INADDR_ANY
 	#endif
@@ -265,9 +265,9 @@ std::string save_info::format_time_local() const
 	char time_buf[256] = {0};
 	tm* tm_l = localtime(&modified());
 	if (tm_l) {
+		const std::string format = preferences::use_twelve_hour_clock_format() ? _("%a %b %d %I:%M %p %Y") : _("%a %b %d %H:%M %Y");
 		const size_t res = strftime(time_buf,sizeof(time_buf),
-			(preferences::use_twelve_hour_clock_format() ? _("%a %b %d %I:%M %p %Y") : _("%a %b %d %H:%M %Y")),
-			tm_l);
+			format.c_str(), tm_l);
 		if(res == 0) {
 			time_buf[0] = 0;
 		}
@@ -381,8 +381,8 @@ void delete_game(const std::string& name)
 	std::string modified_name = name;
 	replace_space2underbar(modified_name);
 
-	remove((filesystem::get_saves_dir() + "/" + name).c_str());
-	remove((filesystem::get_saves_dir() + "/" + modified_name).c_str());
+	filesystem::delete_file(filesystem::get_saves_dir() + "/" + name);
+	filesystem::delete_file(filesystem::get_saves_dir() + "/" + modified_name);
 
 	save_index_manager.remove(name);
 }
