@@ -811,7 +811,7 @@ void save_preview_pane::draw_contents()
 
 	const std::string& campaign_type = summary["campaign_type"];
 	if (summary["corrupt"].to_bool()) {
-		str << "\n" << _("#(Filename is not valid)");
+		str << "\n" << _("#(Invalid)");
 	} else {
 		str << "\n";
 
