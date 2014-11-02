@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2007 - 2009
+   Copyright (C) 2007 - 2014 by David White <dave@whitevine.net>
    Part of the Battle for Wesnoth Project http://www.wesnoth.org
 
    This program is free software; you can redistribute it and/or modify
@@ -1070,7 +1070,6 @@ void lobby::process_event()
 	}
 
 	if(quit_game_.pressed()) {
-		recorder.set_skip(false);
 		set_result(QUIT);
 		return;
 	}

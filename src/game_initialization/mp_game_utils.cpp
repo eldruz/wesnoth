@@ -22,7 +22,6 @@
 #include "gettext.hpp"
 #include "log.hpp"
 #include "mp_options.hpp"
-#include "replay.hpp"
 #include "resources.hpp"
 #include "savegame.hpp"
 #include "tod_manager.hpp"
@@ -131,20 +130,6 @@ config initial_level_config(saved_game& state)
 				game_config().find_child("modification", "id", mods[i]));
 	}
 
-
-#if 0
-	// we have this alredy in [multiplayer]. If removing this causes a bug than that's most likley bacause some is searchin for this information at the wrng place (not in [multiplayer])
-	// If game was reloaded, params won't contain all required information and so we
-	// need to take it from the actual level config.
-	if (params.saved_game) {
-		level["observer"] = level.child("multiplayer")["observer"];
-		level["shuffle_sides"] = level.child("multiplayer")["shuffle_sides"];
-	} else {
-		level["observer"] = params.allow_observers;
-		level["shuffle_sides"] = params.shuffle_sides;
-	}
-#endif
-
 	// This will force connecting clients to be using the same version number as us.
 	level["version"] = game_config::version;
 	return level;
@@ -157,20 +142,6 @@ void level_to_gamestate(const config& level, saved_game& state)
 	state = saved_game(level);
 	state.classification().campaign_type = type;
 	state.mp_settings().show_connect = show_connect;
-	// Any replay data is only temporary and should be removed from
-	// the level data in case we want to save the game later.
-	if (const config& replay_data = level.child("replay"))
-	{
-		LOG_NW << "setting replay\n";
-		recorder = replay(replay_data);
-		if (!recorder.empty()) {
-			recorder.set_skip(false);
-			recorder.set_to_end();
-		}
-	}
-
-
-	//save id setting  was moved to play_controller.
 }
 
 void check_response(network::connection res, const config& data)

@@ -418,6 +418,10 @@ possible_end_play_signal playsingle_controller::play_scenario_main_loop(end_leve
 	// allow the first turn to have an autosave.
 	do_autosaves_ = !loading_game_;
 	ai_testing::log_game_start();
+	if(gamestate_.board_.teams().empty())
+	{
+		ERR_NG << "Playing game with 0 teams." << std::endl;
+	}
 	for(; ; first_player_ = 1) {
 		PROPOGATE_END_PLAY_SIGNAL( play_turn() );
 		do_autosaves_ = true;
@@ -567,10 +571,8 @@ LEVEL_RESULT playsingle_controller::play_scenario(
 								sound::play_music_once(victory_music);
 						}
 
-						// Add all the units that survived the scenario.
-						// this function doesn't move unit to the recalllist anymore i just keep this name to prevent merging conflicts.
-						LOG_NG << "Add units that survived the scenario to the recall list.\n";
-						gamestate_.board_.all_survivors_to_recall();
+						LOG_NG << "Healing survived units\n";
+						gamestate_.board_.heal_all_survivors();
 
 						saved_game_.remove_snapshot();
 						if(!is_observer()) {
